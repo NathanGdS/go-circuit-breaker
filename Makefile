@@ -1,2 +1,5 @@
-run:
-	@go run ./main.go
+circuit:
+	@go run ./breaker/main.go
+
+self:
+	@go run ./self-implemented/main.go
