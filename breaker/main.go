@@ -2,9 +2,10 @@ package main
 
 import (
 	"errors"
-	"fmt"
+	"net/http"
 	"time"
 
+	"github.com/NathanGdS/pkg"
 	"github.com/sony/gobreaker"
 )
 
@@ -13,19 +14,25 @@ var successes = 0
 var failures = 0
 
 func unstableAPI() (string, error) {
-	totalRequest++
-	fmt.Printf("Hit on API %d ", totalRequest)
-
-	if totalRequest >= 15 {
-		successes++
-		return "success", nil
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", "http://localhost:8081", nil)
+	if err != nil {
+		pkg.Error("Error creating request:  " + err.Error())
+		return "", errors.New("failure")
 	}
 
-	if totalRequest >= 5 {
-		failures++
-		return "", errors.New("simulated failure")
+	resp, err := client.Do(req)
+	if err != nil {
+		pkg.Error("Error sending request:  " + err.Error())
+		return "", errors.New("failure")
 	}
-	successes++
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		pkg.Error("Error on request!")
+		return "", errors.New("failure")
+	}
+
 	return "success", nil
 }
 
@@ -39,24 +46,22 @@ func main() {
 			return counts.ConsecutiveFailures > 3
 		},
 		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
-			fmt.Printf("Circuit breaker mudou de %v para %v\n", from, to)
+			pkg.Default("Circuit breaker mudou de " + from.String() + "para " + to.String())
 		},
 	}
 
 	cb := gobreaker.NewCircuitBreaker(settings)
 
-	for totalRequest < 20 {
-		time.Sleep(500 * time.Millisecond)
-		result, err := cb.Execute(func() (interface{}, error) {
+	for {
+		// time.Sleep(500 * time.Millisecond)
+		_, err := cb.Execute(func() (interface{}, error) {
 			return unstableAPI()
 		})
 
 		if err != nil {
-			fmt.Printf("Erro na requisição: %v\n", err)
-		} else {
-			fmt.Printf("Resposta: %v\n", result)
+			pkg.Error("Erro na requisição: " + err.Error())
 		}
 	}
 
-	fmt.Printf("\nTotal hits: %d\nTotal successes: %d\nTotal failures: %d\n ", totalRequest, successes, failures)
+	// fmt.Printf("\nTotal hits: %d\nTotal successes: %d\nTotal failures: %d\n ", totalRequest, successes, failures)
 }
