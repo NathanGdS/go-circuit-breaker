@@ -1,25 +1,39 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/NathanGdS/pkg"
 )
 
 func helloHandler(w http.ResponseWriter, r *http.Request) {
-	if rand.Float32() < 0.1 {
+	var response pkg.Response
+	if rand.Float32() < 0.5 {
 		pkg.Error("Error on request :(")
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(500)
+		response = pkg.Response{
+			Message: "Error on request :(",
+			Status:  500,
+		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
-
-	pkg.Default("Success")
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(201)
+	response = pkg.Response{
+		Message: "Success",
+		Status:  201,
+	}
+
+	pkg.Default("Success; " + strconv.Itoa(response.Status) + " - " + response.Message)
+	json.NewEncoder(w).Encode(response)
 }
 
 func main() {
